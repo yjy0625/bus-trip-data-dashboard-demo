@@ -1,0 +1,315 @@
+<html>
+	<head>
+		<title>Bus Trip Data</title>
+		<style>
+			body {
+				margin: 0 auto;
+				font-family: sans-serif;
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+			}
+			p {
+				font-size: 24px;
+				padding: 22px;
+				color: white;
+				text-align: center;
+				display: block;
+				transition: all 0.2s;
+			}
+
+			table {
+				border-collapse: collapse;
+				width: 100%;
+			}
+			thead {
+				width: 100%;
+				border-bottom: 1px solid gray;
+			}
+			thead tr {
+				background-color: #bbb;
+				display: block;
+			}
+			th {
+				font-weight: bold;
+				padding: 12px 10px 10px 10px;
+			}
+			tbody {
+				display: block;
+				overflow: auto;
+			}
+			tbody tr:nth-child(even) {
+				background-color: white;
+			}
+			tbody tr:hover {
+				background-color: rgb(176,211,255);
+			}
+			td {
+				padding: 5px 10px 5px 10px;
+				text-align: center;
+			}
+			tbody td:nth-child(3) {
+				text-align: left;
+			}
+			td:nth-child(1), th:nth-child(1) { width: 10%; text-align: right; }
+  			td:nth-child(2), th:nth-child(2) { width: 15%; }
+			td:nth-child(3), th:nth-child(3) { width: 50%; }
+			td:nth-child(4), th:nth-child(4) { min-width: 200px; }
+
+			#interactive {
+				width: 310px;
+				display: block;
+				margin: 20px auto;
+			}
+			select {
+				width: 200px;
+				float: left;
+				outline: none;
+			}
+			button {
+				cursor: pointer;
+				width: 100px;
+				height: 40px;
+				border: 1px solid black;
+				border-radius: 5px;
+				box-sizing: border-box;
+				color: black;
+				background: linear-gradient(rgb(225,225,225),rgb(155,155,155));
+				margin-left: 10px;
+				float: left;
+			}
+			#header {
+				width: 100%;
+				height: 72px;
+				background-color: #555;
+				box-sizing: border-box;
+				box-shadow: 0px 0px 10px black;
+				background: linear-gradient(rgb(0,135,235),rgb(0,92,152));
+				position: relative;
+				z-index: 100;
+			}
+			.wrapper {
+				width: 50%;
+				float: left;
+				opacity: 0.0;
+				box-sizing: border-box;
+				transition: opacity 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), height 0s;
+			}
+			#map {	
+				width: 100%;
+				height: 100%;		
+				display: block;
+				border-right: 1px solid black;
+				background-image: url("images/mapicon.png");
+				background-position: center;
+				background-repeat: no-repeat;
+				background-color: #eee;
+				position: relative;
+				z-index: 50;
+			}
+			#content {
+				width: 100%;
+				overflow: hidden;
+				margin: 0 auto;
+				border-top: 1px solid black;
+				border-left: 1px solid black;
+				box-sizing: border-box;
+				background-color: #eee;
+			}
+			#notice {
+				padding: 50px;
+				font-size: 12px;
+			}
+		</style>
+		<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+		<script src="https://maps.googleapis.com/maps/api/js?
+		key=AIzaSyCWOQo7r6q-w5EZKH4iYVAm-9SgtezXFuc
+		&callback=initMap" async defer></script>
+		<script>
+			// Style settings
+			function setStyles() {
+				document.getElementById("title-text").innerHTML = 'Bus Trip Data Visualization (Demo)';
+				var headerHeight = 72;
+				var wrapperItems = document.getElementsByClassName("wrapper");
+				var windowHeight = window.innerHeight;
+				for(i = 0; i < wrapperItems.length; i++) {
+					wrapperItems[i].style.opacity = 1.0;
+					wrapperItems[i].style.height = (windowHeight - headerHeight) + 'px';
+				}
+				document.getElementById("interactive").style.height = 40 + 'px';
+				document.getElementById("content").style.height = (windowHeight - headerHeight - 80) + 'px';
+				var body = document.getElementById("mytbody");
+				if(body != null) {
+					body.style.height = (windowHeight - headerHeight - 120) + 'px';
+				}
+			}
+		</script>
+		<script>  
+			// Working with HTML Table
+			var obj;
+			function getFile() {
+				$.ajax({
+					type: 'GET',
+					url: 'sample_data.json',
+					dataType: "text",
+    				success: function(data) {
+						obj = JSON.parse(data);
+						callInitializeFunctions();
+    				}
+				});
+			}
+			function callInitializeFunctions() {
+				setStyles();
+				partitionData();
+				setDropDown();
+			}
+			function generateTable(start, end) {
+				var str = '<table id="mytable">';
+				str += '<thead><tr>'
+					+ '<th>#</th>'
+					+ '<th>Stop ID</th>'
+					+ '<th>Stop Name</th>'
+					+ '<th>Location</th>'
+					+ '</tr></thead>';
+				str += '<tbody id="mytbody">';
+				for(i = start; i < end; i++) {
+					str += '<tr onmouseover="showPosition(this)">'
+						+ '<td>' + obj.items[i].stop_sequence + '</td>'
+						+ '<td>' + obj.items[i].stop_id + '</td>'
+						+ '<td>' + obj.items[i].stop_name + '</td>'
+						+ '<td>' + '(' + (obj.items[i].stop_lat).toFixed(5) + ', ' 
+									   + (obj.items[i].stop_lon).toFixed(5) + ')' + '</td>'
+					+ '</tr>';
+				}
+				str += '</tbody></table>';
+				document.getElementById("content").innerHTML = str;
+				setStyles();
+			}
+			function setDropDown() {
+				var ele = document.getElementById("drop-down");
+				var itemHeight = ele.offsetHeight;
+				ele.style.marginTop = (20-itemHeight/2) + 'px';
+				var str = '<option value="-1">--Select a trip id--</option>\n';
+				for(i = 0; i < arrCount; i++) {
+					str += '<option value="' + i + '">' + tripIds[i]%100 + '</option>';
+				}
+				document.getElementById("drop-down").innerHTML = str;
+			}
+			function updateAll() {
+				var selectedValue = parseInt(document.getElementById("drop-down").value);
+				if(selectedValue > -1) {
+					var start = startNo[selectedValue];
+					var end = startNo[selectedValue+1];
+					generateTable(start, end);
+					drawMap(start, end);
+				}
+			}
+		</script>
+		<script>
+			// Working with data partitioning
+			var startNo = [];
+			var tripIds = [];
+			var arrCount = 0;
+			function partitionData() {
+				var tempID = 0;
+				for(i = 0; i < obj.items.length; i++) {
+					if(tempID != obj.items[i].trip_id) {
+						startNo[arrCount] = i;
+						tempID = obj.items[i].trip_id;
+						tripIds[arrCount] = tempID;
+						arrCount++;
+					}
+				}
+				startNo[arrCount] = obj.items.length;
+			}
+		</script>
+		<script>
+			// Working with Maps
+			var map;
+			var currentStart;
+			var currentMarker;
+			function drawMap(start, end) {
+				var mid = Math.floor((start+end)/2);
+				var mapOptions = {
+					center: new google.maps.LatLng(obj.items[mid].stop_lat, obj.items[mid].stop_lon),
+					zoom: 12
+				};
+				map = new google.maps.Map(document.getElementById("map"), mapOptions);
+				var newPath = [];
+				for(i = start; i < end; i++) {
+					newPath[i-start] = new google.maps.LatLng(obj.items[i].stop_lat, obj.items[i].stop_lon);
+				}
+				addLine(newPath);
+				for(i = start; i < end; i++) {
+					addMarker(obj.items[i].stop_lat, obj.items[i].stop_lon);
+				}
+				currentStart = start;
+			}
+			function addMarker(lat, lon) {
+				var tmpPos = new google.maps.LatLng(lat,lon);
+				var newCircle = new google.maps.Circle({
+					center: tmpPos,
+					radius: 30,
+					strokeColor: "#000",
+					strokeOpacity: 1.0,
+					strokeWeight: 1,
+					fillColor: "#000",
+					fillOpacity: 0.5
+				});
+				newCircle.setMap(map);
+			}
+			function addLine(path) {
+				var newPath = new google.maps.Polyline({
+					path: path,
+					strokeColor: "#000",
+					strokeOpacity: 0.8,
+					strokeWeight: 2
+				});
+				newPath.setMap(map);
+			}
+			function showPosition(row) {
+				if(currentMarker !== undefined) currentMarker.setMap(null);
+				var dataIndex = currentStart + row.rowIndex - 1;
+				var tmpPos = new google.maps.LatLng(obj.items[dataIndex].stop_lat,obj.items[dataIndex].stop_lon);
+				currentMarker = new google.maps.Marker({ position: tmpPos });
+				currentMarker.setMap(map);
+			}
+		</script>
+	</head>
+	<body onload="getFile();" onresize="setStyles();">
+		<div id="header">
+			<p id="title-text">Loading data...</p>
+		</div>
+		<div class="wrapper">
+			<div id="map"></div>
+		</div>
+		<div class="wrapper">
+			<div id="interactive">
+				<select id="drop-down">
+				</select>
+				<button onclick="updateAll();" id="showbtn">Show Data</button>
+			</div>
+			<div id="content">
+				<table id="mytable">
+					<thead>
+						<tr>
+							<th>#</th>
+							<th>Stop ID</th>
+							<th>Stop Name</th>
+							<th>Location</th>
+						</tr>
+					</thead>
+				</table>
+				<div id="notice"> 
+					Notice:
+					<ul>
+						<li>Chrome does not allow loading local json files. Thus, please use other web browsers such as Safari for this demo.</li>
+						<li>The icon displayed at the left comes from Internet.</li>
+						<li>Because real data cannot be shared publicly, the data used in this demo is the trip data of subway lines in Beijing.</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
